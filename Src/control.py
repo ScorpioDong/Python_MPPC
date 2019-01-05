@@ -4,7 +4,7 @@ import serial
 import time
 import threading
 from PySide2 import QtCore
-
+from MPPCModule.MPPCModule import mppcum1a
 
 class Control(QtCore.QObject):
 
@@ -38,11 +38,16 @@ class Control(QtCore.QObject):
             self.Serial.open()
         except:
             print("Serial open failed!")
+            return False
+        
+        self.ReceiveThread.start()
+        self.AskStaticThread.start()
+        return True
 
     def ask_static(self):
         while self._BOOL:
-            self.Serial.write("/")
-            time.sleep(0.02)
+            self.Serial.write("?ST/")
+            time.sleep(0.03)
 
     def receive_data(self):
         while True:

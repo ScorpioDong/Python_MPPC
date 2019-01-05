@@ -5,7 +5,7 @@ import UI.mainFm
 import Src.startDlg
 import Src.parmasDlg
 import Src.coolingFm
-from MPPCModule import MPPCModule as mppcum1a
+from MPPCModule.MPPCModule import mppcum1a
 
 from PySide2 import QtCore, QtWidgets, QtGui
 
@@ -116,6 +116,21 @@ class MainFm(QtWidgets.QWidget):
         self.CoolingDlg.hide()
         super().closeEvent(event)
 
+    def parmas_load(self):
+        self.Parmas['row'] = self.ParmasDlg.Parmas['pic_x_count']
+        self.Parmas['col'] = self.ParmasDlg.Parmas["pic_y_count"]
+        self.Parmas['x_step'] = round(
+            self.ParmasDlg.Parmas['pic_x_len']*400.0/(self.ParmasDlg.Parmas['pic_x_count'] - 1.0))
+        self.Parmas['y_step'] = round(
+            self.ParmasDlg.Parmas['pic_y_len']*400.0/(self.ParmasDlg.Parmas['pic_y_count'] - 1.0))
+        self.Parmas['x_speed'] = self.ParmasDlg.Parmas['mt_x_speed']
+        self.Parmas['y_speed'] = self.ParmasDlg.Parmas['mt_y_speed']
+        self.Parmas['gatetime'] = int(
+            self.ParmasDlg.ui.gatetime_Cmb.currentText())
+        self.Parmas['datasize'] = round(
+            self._CYCLE_TIME/self.Parmas['gatetime'])
+        self.Parmas['threshold_index'] = self.ParmasDlg.Parmas['threshold_index']
+        self.Parmas['serial_name'] = self.ParmasDlg.ui.serial_Cmb.currentText()
     @QtCore.Slot()
     def startdlg_start_clicked_slot(self):
         self.StartDlg.hide()
@@ -131,23 +146,13 @@ class MainFm(QtWidgets.QWidget):
         # else:
         self.ParmasDlg.hide()
         self.ParmasDlg.parmas_save()
-        self.Parmas['row'] = self.ParmasDlg.Parmas['pic_x_count']
-        self.Parmas['col'] = self.ParmasDlg.Parmas["pic_y_count"]
-        self.Parmas['x_step'] = round(
-            self.ParmasDlg.Parmas['pic_x_len']*400.0/(self.ParmasDlg.Parmas['pic_x_count'] - 1.0))
-        self.Parmas['y_step'] = round(
-            self.ParmasDlg.Parmas['pic_y_len']*400.0/(self.ParmasDlg.Parmas['pic_y_count'] - 1.0))
-        self.Parmas['x_speed'] = self.ParmasDlg.Parmas['mt_x_speed']
-        self.Parmas['y_speed'] = self.ParmasDlg.Parmas['mt_y_speed']
-        self.Parmas['gatetime'] = int(
-            self.ParmasDlg.ui.gatetime_Cmb.currentText())
-        self.Parmas['datasize'] = round(
-            self._CYCLE_TIME/self.Parmas['gatetime'])
-        self.Parmas['threshold_index'] = self.ParmasDlg.Parmas['threshold_index']
-        self.Parmas['serial_name'] = self.ParmasDlg.ui.serial_Cmb.currentText()
+        self.parmas_load()
         self.show()
         self.CoolingDlg.show()
         if self.mppc_config() == False:
             self.quit_signal.emit()
         else:
             self.CoolingDlg.hide()
+            self.ui.data_Btn.setEnabled(True)
+            self.ui.start_Btn.setEnabled(True)
+            self.ui.stop_Btn.setEnabled(True)
