@@ -5,6 +5,7 @@ import UI.mainFm
 import Src.startDlg
 import Src.parmasDlg
 import Src.coolingFm
+import Src.control
 from MPPCModule.MPPCModule import mppcum1a
 
 from PySide2 import QtCore, QtWidgets, QtGui
@@ -33,7 +34,9 @@ class MainFm(QtWidgets.QWidget):
         self.StartDlg = Src.startDlg.StartDlg()
         self.ParmasDlg = Src.parmasDlg.ParmasDlg()
         self.CoolingDlg = Src.coolingFm.CoolingFm()
+        self.Ctrler = Src.control.Control()
         self.CtrlThread = QtCore.QThread()
+        self.Ctrler.moveToThread(self.CtrlThread)
 
     def connect_init(self):
         self.StartDlg.ui.start_Btn.clicked.connect(
@@ -150,7 +153,7 @@ class MainFm(QtWidgets.QWidget):
         self.show()
         self.CoolingDlg.show()
         if self.mppc_config() == False:
-            self.quit_signal.emit()
+            pass#self.quit_signal.emit()
         else:
             self.CoolingDlg.hide()
             self.ui.data_Btn.setEnabled(True)
