@@ -7,5 +7,6 @@ from PySide2 import QtCore, QtWidgets
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     win = Src.mainFm.MainFm()
+    win.quit_signal.connect(app.quit)
     win.start()
     app.exec_()
