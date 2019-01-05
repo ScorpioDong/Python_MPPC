@@ -1,9 +1,11 @@
-# -*- coding:utf-8 -*- 
+# -*- coding:utf-8 -*-
 
 import json
 import UI.parmasFm
 import serial.tools.list_ports
 from PySide2 import QtCore, QtWidgets, QtGui
+
+
 class ParmasDlg(QtWidgets.QDialog):
 
     def __init__(self):
@@ -18,7 +20,8 @@ class ParmasDlg(QtWidgets.QDialog):
 
     def ui_init(self):
         self.ui.gatetime_Cmb.addItems(("1", "2", "5", "10", "20", "50", "100"))
-        self.ui.threshold_Cmb.addItems(("0.5 p.e.", "1.5 p.e.", "2.5 p.e.", "3.5 p.e.", "4.5 p.e.", "5.5 p.e.", "6.5 p.e.", "7.5 p.e.", "Disable"))
+        self.ui.threshold_Cmb.addItems(
+            ("0.5 p.e.", "1.5 p.e.", "2.5 p.e.", "3.5 p.e.", "4.5 p.e.", "5.5 p.e.", "6.5 p.e.", "7.5 p.e.", "Disable"))
         self.port_check()
 
     def connect_init(self):
@@ -46,7 +49,7 @@ class ParmasDlg(QtWidgets.QDialog):
         self.Parmas['gatetime_index'] = self.ui.gatetime_Cmb.currentIndex()
         self.Parmas['threshold_index'] = self.ui.threshold_Cmb.currentIndex()
         with open("Config/parmas.json", "w", encoding='utf-8') as file:
-            json.dump(self.Parmas, file, indent = 4)
+            json.dump(self.Parmas, file, indent=4)
 
     @QtCore.Slot()
     def port_check(self):

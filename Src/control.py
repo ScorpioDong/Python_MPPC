@@ -1,9 +1,10 @@
 # -*- coding:utf-8 -*-
 
-import serial 
+import serial
 import time
 import threading
 from PySide2 import QtCore
+
 
 class Control(QtCore.QObject):
 
@@ -15,9 +16,9 @@ class Control(QtCore.QObject):
         self.Serial = serial.Serial()
         self.ReceiveThread = threading.Thread(target=self.receive_data)
         self.ReceiveThread.setDaemon(True)
-        self.AskStaticThread = threading.Thread(target = self.ask_static)
+        self.AskStaticThread = threading.Thread(target=self.ask_static)
         self.AskStaticThread.setDaemon(True)
-        
+
         self.data_trans_signal.connect(self.data_trans_slot)
 
         self.serial_init()
@@ -46,11 +47,10 @@ class Control(QtCore.QObject):
     def receive_data(self):
         while True:
             self.ReceiveData = self.Serial.readline()
-            self.data_trans_signal.emit()            
+            self.data_trans_signal.emit()
 
     @QtCore.Slot()
     def data_trans_slot(self):
         Receive = self.ReceiveData
         if Receive.find("ST=") != -1:
             pass
-

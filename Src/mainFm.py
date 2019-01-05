@@ -13,10 +13,11 @@ from PySide2 import QtCore, QtWidgets, QtGui
 class MainFm(QtWidgets.QWidget):
 
     quit_signal = QtCore.Signal()
-    
+
     def __init__(self):
         super().__init__()
-        self.setWindowFlags(self.windowFlags() & ~QtCore.Qt.WindowMaximizeButtonHint)
+        self.setWindowFlags(self.windowFlags() & ~
+                            QtCore.Qt.WindowMaximizeButtonHint)
         self.ui = UI.mainFm.Ui_mainFm()
         self.ui.setupUi(self)
 
@@ -149,4 +150,4 @@ class MainFm(QtWidgets.QWidget):
         if self.mppc_config() == False:
             self.quit_signal.emit()
         else:
-            self.CoolingDlg.hide() 
+            self.CoolingDlg.hide()
