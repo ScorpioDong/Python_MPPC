@@ -1,0 +1,10 @@
+{
+    "pic_x_len": 50,
+    "pic_y_len": 50,
+    "pic_x_count": 20,
+    "pic_y_count": 20,
+    "mt_x_speed": 5000,
+    "mt_y_speed": 5000,
+    "gatetime_index": 0,
+    "threshold_index": 0
+}
