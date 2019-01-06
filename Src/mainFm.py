@@ -15,11 +15,12 @@ class MainFm(QtWidgets.QWidget):
 
     quit_signal = QtCore.Signal()
     ctrl_init_signal = QtCore.Signal(dict)
+    ctrl_run_signal = QtCore.Signal()
 
     def __init__(self):
         super().__init__()
         self.setWindowFlags(self.windowFlags() & ~
-                            QtCore.Qt.WindowMaximizeButtonHint)
+                            QtCore.Qt.WindowMaximizeButtonHint & ~QtCore.Qt.WindowCloseButtonHint)
         self.ui = UI.mainFm.Ui_mainFm()
         self.ui.setupUi(self)
 
@@ -38,17 +39,21 @@ class MainFm(QtWidgets.QWidget):
         self.Ctrler = Src.control.Control()
         self.CtrlThread = QtCore.QThread()
         self.Ctrler.moveToThread(self.CtrlThread)
-        self.CtrlThread.start()
 
     def connect_init(self):
         self.StartDlg.ui.start_Btn.clicked.connect(
             self.startdlg_start_clicked_slot)
         self.ParmasDlg.ui.startBtn.clicked.connect(
             self.parmasdlg_start_clicked_slot)
+
         self.ctrl_init_signal.connect(self.Ctrler.init)
+        self.ctrl_run_signal.connect(self.Ctrler.run)
         self.Ctrler.serial_open_failed_signal.connect(
             self.ctrl_serial_open_failed_slot)
+        self.Ctrler.data_show_signal.connect(self.data_show_slot)
+
         self.ui.stop_Btn.clicked.connect(self.stop_clicked_slot)
+        self.ui.start_Btn.clicked.connect(self.start_clicked_slot)
 
     def start(self):
         self.StartDlg.show()
@@ -121,13 +126,11 @@ class MainFm(QtWidgets.QWidget):
                 return True
             time.sleep(1)
 
-    def closeEvent(self, event):
-        self.CoolingDlg.hide()
-        super().closeEvent(event)
-
     def parmas_load(self):
-        self.Parmas['row'] = self.ParmasDlg.Parmas['pic_x_count']
-        self.Parmas['col'] = self.ParmasDlg.Parmas["pic_y_count"]
+        self.Parmas['device_handle'] = self.DeviceHandle
+        self.Parmas['pipe_handle'] = self.PipeHandle
+        self.Parmas['row'] = self.ParmasDlg.Parmas['pic_y_count']
+        self.Parmas['col'] = self.ParmasDlg.Parmas["pic_x_count"]
         self.Parmas['x_step'] = round(
             self.ParmasDlg.Parmas['pic_x_len']*400.0/(self.ParmasDlg.Parmas['pic_x_count'] - 1.0))
         self.Parmas['y_step'] = round(
@@ -153,16 +156,31 @@ class MainFm(QtWidgets.QWidget):
 
     @QtCore.Slot()
     def stop_clicked_slot(self):
+        self.start_clicked_slot()
         MsgBox = QtWidgets.QMessageBox()
         MsgBox.setText("程序即将退出")
         MsgBox.setInformativeText("是否保存运行信息，等待下次自动运行？")
         MsgBox.setStandardButtons(
-            QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard)
+            QtWidgets.QMessageBox.Cancel | QtWidgets.QMessageBox.Discard | QtWidgets.QMessageBox.Save)
         MsgBox.setDefaultButton(QtWidgets.QMessageBox.Save)
-        if MsgBox.exec_() == QtWidgets.QMessageBox.Discard:
+        result = MsgBox.exec_()
+        if result == QtWidgets.QMessageBox.Discard:
+            self.app_quit()
+        elif result == QtWidgets.QMessageBox.Save:
+            pass
             self.app_quit()
         else:
-            pass
+            self.start_clicked_slot()
+
+    @QtCore.Slot()
+    def start_clicked_slot(self):
+        name = self.ui.start_Btn.text()
+        if name == "开始" or name == "继续":
+            self.ctrl_run_signal.emit()
+            self.ui.start_Btn.setText("暂停")
+        elif name == "暂停":
+            self.Ctrler.isPause = True
+            self.ui.start_Btn.setText("继续")
 
     @QtCore.Slot()
     def ctrl_serial_open_failed_slot(self):
@@ -183,12 +201,19 @@ class MainFm(QtWidgets.QWidget):
         self.ParmasDlg.hide()
         self.ParmasDlg.parmas_save()
         self.parmas_load()
+        self.ui.stop_Btn.setEnabled(True)
         self.show()
         self.CoolingDlg.show()
         # if self.mppc_config() == False:
         #    self.app_quit()
+        self.CtrlThread.start()
         self.ctrl_init_signal.emit(self.Parmas)
         self.CoolingDlg.hide()
         self.ui.data_Btn.setEnabled(True)
         self.ui.start_Btn.setEnabled(True)
-        self.ui.stop_Btn.setEnabled(True)
+
+    @QtCore.Slot(list)
+    def data_show_slot(self, data):
+        self.ui.row_LB.setText(str(data[0]+1))
+        self.ui.col_LB.setText(str(data[1]+1))
+        self.ui.count_LB.setText(str(data[2]))
