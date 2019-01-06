@@ -3,13 +3,14 @@
 import serial
 import time
 import threading
-from PySide2 import QtCore
+from PySide2 import QtCore, QtWidgets
 from MPPCModule.MPPCModule import mppcum1a
 
 
 class Control(QtCore.QObject):
 
-    data_trans_signal = QtCore.Signal()
+    data_trans_signal = QtCore.Signal(str)
+    serial_open_failed_signal = QtCore.Signal()
 
     def __init__(self):
         super().__init__()
@@ -25,6 +26,8 @@ class Control(QtCore.QObject):
         self.serial_init()
         self._BOOL = True
         self._isStop = True
+        self.RowN = 1
+        self.ColN = 1
 
     def serial_init(self):
         self.Serial.baudrate = 9600
@@ -34,13 +37,13 @@ class Control(QtCore.QObject):
         self.Serial.timeout = 0.5
         self.Serial.writeTimeout = 0.5
 
-    def start(self, Parmas):
+    @QtCore.Slot(dict, result=bool)
+    def init(self, Parmas):
         self.Parmas = Parmas
-        self.serial_open(self.Parmas['serial_name'])
+        if self.serial_open(self.Parmas['serial_name']) == False:
+            self.serial_open_failed_signal.emit()
+            return
         self.mt_speed_config(self.Parmas['x_speed'], self.Parmas['y_speed'])
-
-        self.ReceiveThread.start()
-        self.AskStopThread.start()
 
     def serial_open(self, Port):
         self.Serial.name = Port
@@ -73,6 +76,9 @@ class Control(QtCore.QObject):
         self._BOOL = True
         self.wait_stop()
 
+    def mppc_get_count(self):
+        pass
+
     def wait_stop(self):
         self._isStop = False
         while True:
@@ -87,11 +93,10 @@ class Control(QtCore.QObject):
 
     def receive_data(self):
         while True:
-            self.ReceiveData = self.Serial.readline()
-            self.data_trans_signal.emit()
+            ReceiveData = self.Serial.readline()
+            self.data_trans_signal.emit(ReceiveData)
 
-    @QtCore.Slot()
-    def data_trans_slot(self):
-        Receive = self.ReceiveData
-        if Receive.find("ST=00") != -1:
+    @QtCore.Slot(str)
+    def data_trans_slot(self, ReceiveData):
+        if ReceiveData.find("ST=00") != -1:
             self._isStop = True

@@ -14,6 +14,7 @@ from PySide2 import QtCore, QtWidgets, QtGui
 class MainFm(QtWidgets.QWidget):
 
     quit_signal = QtCore.Signal()
+    ctrl_init_signal = QtCore.Signal(dict)
 
     def __init__(self):
         super().__init__()
@@ -37,12 +38,17 @@ class MainFm(QtWidgets.QWidget):
         self.Ctrler = Src.control.Control()
         self.CtrlThread = QtCore.QThread()
         self.Ctrler.moveToThread(self.CtrlThread)
+        self.CtrlThread.start()
 
     def connect_init(self):
         self.StartDlg.ui.start_Btn.clicked.connect(
             self.startdlg_start_clicked_slot)
         self.ParmasDlg.ui.startBtn.clicked.connect(
             self.parmasdlg_start_clicked_slot)
+        self.ctrl_init_signal.connect(self.Ctrler.init)
+        self.Ctrler.serial_open_failed_signal.connect(
+            self.ctrl_serial_open_failed_slot)
+        self.ui.stop_Btn.clicked.connect(self.stop_clicked_slot)
 
     def start(self):
         self.StartDlg.show()
@@ -134,10 +140,37 @@ class MainFm(QtWidgets.QWidget):
             self._CYCLE_TIME/self.Parmas['gatetime'])
         self.Parmas['threshold_index'] = self.ParmasDlg.Parmas['threshold_index']
         self.Parmas['serial_name'] = self.ParmasDlg.ui.serial_Cmb.currentText()
+
     @QtCore.Slot()
     def startdlg_start_clicked_slot(self):
         self.StartDlg.hide()
         self.ParmasDlg.show()
+
+    def app_quit(self):
+        self.CtrlThread.quit()
+        self.CtrlThread.wait()
+        self.quit_signal.emit()
+
+    @QtCore.Slot()
+    def stop_clicked_slot(self):
+        MsgBox = QtWidgets.QMessageBox()
+        MsgBox.setText("程序即将退出")
+        MsgBox.setInformativeText("是否保存运行信息，等待下次自动运行？")
+        MsgBox.setStandardButtons(
+            QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Discard)
+        MsgBox.setDefaultButton(QtWidgets.QMessageBox.Save)
+        if MsgBox.exec_() == QtWidgets.QMessageBox.Discard:
+            self.app_quit()
+        else:
+            pass
+
+    @QtCore.Slot()
+    def ctrl_serial_open_failed_slot(self):
+        MsgBox = QtWidgets.QMessageBox()
+        MsgBox.setWindowTitle("！")
+        MsgBox.setText("串口打开失败！")
+        MsgBox.exec_()
+        self.app_quit()
 
     @QtCore.Slot()
     def parmasdlg_start_clicked_slot(self):
@@ -152,10 +185,10 @@ class MainFm(QtWidgets.QWidget):
         self.parmas_load()
         self.show()
         self.CoolingDlg.show()
-        if self.mppc_config() == False:
-            pass#self.quit_signal.emit()
-        else:
-            self.CoolingDlg.hide()
-            self.ui.data_Btn.setEnabled(True)
-            self.ui.start_Btn.setEnabled(True)
-            self.ui.stop_Btn.setEnabled(True)
+        # if self.mppc_config() == False:
+        #    self.app_quit()
+        self.ctrl_init_signal.emit(self.Parmas)
+        self.CoolingDlg.hide()
+        self.ui.data_Btn.setEnabled(True)
+        self.ui.start_Btn.setEnabled(True)
+        self.ui.stop_Btn.setEnabled(True)
