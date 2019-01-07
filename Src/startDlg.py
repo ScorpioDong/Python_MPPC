@@ -11,3 +11,5 @@ class StartDlg(QtWidgets.QDialog):
 
         self.ui = UI.startFm.Ui_startFm()
         self.ui.setupUi(self)
+
+        self.setFixedSize(self.width(),self.height())

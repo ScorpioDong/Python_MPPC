@@ -1,9 +1,13 @@
 # -*- coding:utf-8 -*-
 
+import os
+import datetime
+import json
 import serial
 import time
 import numpy as np
 import ctypes
+import scipy.io as sio
 from Src.askstopthread import AskStopThread
 from PySide2 import QtCore
 from MPPCModule.MPPCModule import mppcum1a
@@ -21,14 +25,15 @@ class Control(QtCore.QObject):
         super().__init__()
 
         self._isStop = True
-        self.RowN = 0
-        self.ColN = 0
         self.isPause = False
 
     @QtCore.Slot(dict)
     def init(self, Parmas):
         self.Parmas = Parmas
-        self.Data = np.zeros((self.Parmas['row'], self.Parmas['col']))
+        if self.Parmas['is_coutinue'] == False:
+            self.Data = np.zeros((self.Parmas['row'], self.Parmas['col']))
+        else:
+            self.Data = sio.loadmat(self.Parmas['path'] + '/temp.mat')['data']
         if self.serial_init(self.Parmas['serial_name']) == False:
             self.serial_open_failed_signal.emit()
             return
@@ -97,7 +102,7 @@ class Control(QtCore.QObject):
                     sumData = sumData + float(dat[i])
                 Data = sumData / \
                     self.Parmas['datasize'] / self.Parmas['gatetime']
-                return Data
+                return round(Data)
 
     def wait_stop(self):
         self._isStop = False
@@ -111,27 +116,38 @@ class Control(QtCore.QObject):
     def run(self):
         self.AskStopThread.start()
         while not self.isPause:
-            if self.ColN == self.Parmas['col'] or self.ColN == -1:
-                self.RowN = self.RowN + 1
-                if self.RowN == self.Parmas['row']:
+            if self.Parmas['col_n'] == self.Parmas['col'] or self.Parmas['col_n'] == -1:
+                self.Parmas['row_n'] = self.Parmas['row_n'] + 1
+                if self.Parmas['row_n'] == self.Parmas['row']:
                     self.task_finish_signal.emit()
                     break
                 else :
-                    if self.ColN == self.Parmas['col']:
-                        self.ColN = self.ColN - 1
+                    if self.Parmas['col_n'] == self.Parmas['col']:
+                        self.Parmas['col_n'] = self.Parmas['col_n'] - 1
                         self.mt_y_one_step()
                     else:
-                        self.ColN = self.ColN + 1
+                        self.Parmas['col_n'] = self.Parmas['col_n'] + 1
                         self.mt_y_one_step()
             else:
-                self.Data[self.RowN, self.ColN] = self.mppc_get_count()
-                self.data_show_signal.emit([self.RowN,self.ColN,self.Data[self.RowN, self.ColN]])
-                if self.RowN % 2 == 0:
-                    self.ColN = self.ColN + 1
+                self.Data[self.Parmas['row_n'], self.Parmas['col_n']] = self.mppc_get_count()
+                self.data_show_signal.emit([self.Parmas['row_n'],self.Parmas['col_n'],self.Data[self.Parmas['row_n'], self.Parmas['col_n']]])
+                if self.Parmas['row_n'] % 2 == 0:
+                    self.Parmas['col_n'] = self.Parmas['col_n'] + 1
                     self.mt_x_one_step(True)
                 else:
-                    self.ColN = self.ColN - 1
+                    self.Parmas['col_n'] = self.Parmas['col_n'] - 1
                     self.mt_x_one_step(False)
             
         self.askstopthread_stop_signal.emit()
         self.isPause = False
+
+    @QtCore.Slot()
+    def save(self):
+        self.Parmas['is_continue'] = True
+        now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+        self.path = "Cache/%s" % now
+        os.mkdir(self.path)
+        with open(self.path + "/parmas.json", "w", encoding='utf-8') as file:
+            json.dump(self.Parmas, file, indent=4)
+
+        sio.savemat(self.path + "/temp.mat", {'data' : self.Data})

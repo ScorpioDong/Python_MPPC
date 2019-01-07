@@ -1,9 +1,12 @@
 # -*- coding : utf-8 -*-
 
+import os
 import time
+import json
 import UI.mainFm
 import Src.startDlg
 import Src.parmasDlg
+import Src.listDlg
 import Src.coolingFm
 import Src.control
 from MPPCModule.MPPCModule import mppcum1a
@@ -16,6 +19,7 @@ class MainFm(QtWidgets.QWidget):
     quit_signal = QtCore.Signal()
     ctrl_init_signal = QtCore.Signal(dict)
     ctrl_run_signal = QtCore.Signal()
+    ctrl_save_signal = QtCore.Signal()
 
     def __init__(self):
         super().__init__()
@@ -23,6 +27,8 @@ class MainFm(QtWidgets.QWidget):
                             QtCore.Qt.WindowMaximizeButtonHint & ~QtCore.Qt.WindowCloseButtonHint)
         self.ui = UI.mainFm.Ui_mainFm()
         self.ui.setupUi(self)
+
+        self.setFixedSize(self.width(),self.height())
 
         self.var_init()
         self.connect_init()
@@ -40,14 +46,26 @@ class MainFm(QtWidgets.QWidget):
         self.CtrlThread = QtCore.QThread()
         self.Ctrler.moveToThread(self.CtrlThread)
 
+        listdir = os.listdir('Cache')
+        if len(listdir) == 0:
+            return
+        else:
+            self.StartDlg.ui.continue_Btn.setEnabled(True)
+            self.ListDlg = Src.listDlg.ListDlg()
+            self.ListDlg.ui.ok_Btn.clicked.connect(self.listdlg_ok_clicked_slot)
+
     def connect_init(self):
         self.StartDlg.ui.start_Btn.clicked.connect(
             self.startdlg_start_clicked_slot)
+        self.StartDlg.ui.continue_Btn.clicked.connect(
+            self.startdlg_continue_clicked_slot)
         self.ParmasDlg.ui.startBtn.clicked.connect(
             self.parmasdlg_start_clicked_slot)
 
         self.ctrl_init_signal.connect(self.Ctrler.init)
         self.ctrl_run_signal.connect(self.Ctrler.run)
+        self.ctrl_save_signal.connect(
+            self.Ctrler.save, QtCore.Qt.BlockingQueuedConnection)
         self.Ctrler.serial_open_failed_signal.connect(
             self.ctrl_serial_open_failed_slot)
         self.Ctrler.data_show_signal.connect(self.data_show_slot)
@@ -127,6 +145,10 @@ class MainFm(QtWidgets.QWidget):
             time.sleep(1)
 
     def parmas_load(self):
+        self.Parmas['row_n'] = 0
+        self.Parmas['col_n'] = 0
+        self.Parmas['is_continue'] = False
+        self.Parmas['path'] = ''
         self.Parmas['device_handle'] = self.DeviceHandle
         self.Parmas['pipe_handle'] = self.PipeHandle
         self.Parmas['row'] = self.ParmasDlg.Parmas['pic_y_count']
@@ -146,8 +168,11 @@ class MainFm(QtWidgets.QWidget):
 
     @QtCore.Slot()
     def startdlg_start_clicked_slot(self):
-        self.StartDlg.hide()
-        self.ParmasDlg.show()
+        self.ParmasDlg.exec_()
+
+    @QtCore.Slot()
+    def startdlg_continue_clicked_slot(self):
+        self.ListDlg.exec_()
 
     def app_quit(self):
         self.CtrlThread.quit()
@@ -167,7 +192,7 @@ class MainFm(QtWidgets.QWidget):
         if result == QtWidgets.QMessageBox.Discard:
             self.app_quit()
         elif result == QtWidgets.QMessageBox.Save:
-            pass
+            self.ctrl_save_signal.emit()
             self.app_quit()
         else:
             self.start_clicked_slot()
@@ -192,15 +217,34 @@ class MainFm(QtWidgets.QWidget):
 
     @QtCore.Slot()
     def parmasdlg_start_clicked_slot(self):
-        # if len(self.ParmasDlg.ui.serial_Cmb.currentText()) == 0:
-        #     MsgBox = QtWidgets.QMessageBox()
-        #     MsgBox.setWindowTitle("！")
-        #     MsgBox.setText("串口未找到！")
-        #     MsgBox.exec_()
-        # else:
-        self.ParmasDlg.hide()
-        self.ParmasDlg.parmas_save()
-        self.parmas_load()
+        if len(self.ParmasDlg.ui.serial_Cmb.currentText()) == 0:
+            MsgBox = QtWidgets.QMessageBox()
+            MsgBox.setWindowTitle("！")
+            MsgBox.setText("串口未找到，请刷新后再试！")
+            MsgBox.exec_()
+        else:
+            self.StartDlg.hide()
+            self.ParmasDlg.hide()
+            self.ParmasDlg.parmas_save()
+            self.parmas_load()
+            self.ui.stop_Btn.setEnabled(True)
+            self.show()
+            self.CoolingDlg.show()
+            # if self.mppc_config() == False:
+            #    self.app_quit()
+            self.CtrlThread.start()
+            self.ctrl_init_signal.emit(self.Parmas)
+            self.CoolingDlg.hide()
+            self.ui.data_Btn.setEnabled(True)
+            self.ui.start_Btn.setEnabled(True)
+
+    @QtCore.Slot()
+    def listdlg_ok_clicked_slot(self):
+        self.StartDlg.hide()
+        self.ListDlg.hide()
+        self.Parmas['path'] = "Cache/" + self.ListDlg.ui.listWidget.currentItem().text()
+        with open(self.Parmas['path'] + "/parmas.json", "r", encoding='utf-8') as file: 
+            self.Parmas = json.load(file)
         self.ui.stop_Btn.setEnabled(True)
         self.show()
         self.CoolingDlg.show()

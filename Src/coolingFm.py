@@ -13,3 +13,5 @@ class CoolingFm(QtWidgets.QDialog):
         self.setFixedSize(342, 96)
         self.ui = UI.coolingFm.Ui_Form()
         self.ui.setupUi(self)
+
+        self.setFixedSize(self.width(),self.height())

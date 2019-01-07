@@ -14,6 +14,8 @@ class ParmasDlg(QtWidgets.QDialog):
         self.ui = UI.parmasFm.Ui_parmasFm()
         self.ui.setupUi(self)
 
+        self.setFixedSize(self.width(),self.height())
+
         self.ui_init()
         self.connect_init()
         self.parmas_load()
