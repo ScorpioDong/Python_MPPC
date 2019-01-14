@@ -7,6 +7,7 @@ import UI.mainFm
 import Src.startDlg
 import Src.parmasDlg
 import Src.listDlg
+import Src.dataDlg
 import Src.coolingFm
 import Src.control
 from MPPCModule.MPPCModule import mppcum1a
@@ -38,7 +39,7 @@ class MainFm(QtWidgets.QWidget):
         self._CYCLE_TIME = 100
         self.DeviceHandle = mppcum1a.INVALID_HANDLE_VALUE
         self.PipeHandle = mppcum1a.INVALID_HANDLE_VALUE
-
+        self.DataDlg = Src.dataDlg.DataFm()
         self.StartDlg = Src.startDlg.StartDlg()
         self.ParmasDlg = Src.parmasDlg.ParmasDlg()
         self.CoolingDlg = Src.coolingFm.CoolingFm()
@@ -61,6 +62,7 @@ class MainFm(QtWidgets.QWidget):
             self.startdlg_continue_clicked_slot)
         self.ParmasDlg.ui.startBtn.clicked.connect(
             self.parmasdlg_start_clicked_slot)
+        self.DataDlg.ui.reflush_Btn.clicked.connect(self.data_slot)
 
         self.ctrl_init_signal.connect(self.Ctrler.init)
         self.ctrl_run_signal.connect(self.Ctrler.run)
@@ -69,9 +71,12 @@ class MainFm(QtWidgets.QWidget):
         self.Ctrler.serial_open_failed_signal.connect(
             self.ctrl_serial_open_failed_slot)
         self.Ctrler.data_show_signal.connect(self.data_show_slot)
+        self.Ctrler.init_finish_signal.connect(self.ctrl_init_finish_slot)
+        self.Ctrler.task_finish_signal.connect(self.task_finish_slot)
 
         self.ui.stop_Btn.clicked.connect(self.stop_clicked_slot)
         self.ui.start_Btn.clicked.connect(self.start_clicked_slot)
+        self.ui.data_Btn.clicked.connect(self.data_slot)
 
     def start(self):
         self.StartDlg.show()
@@ -181,8 +186,10 @@ class MainFm(QtWidgets.QWidget):
 
     @QtCore.Slot()
     def stop_clicked_slot(self):
-        self.start_clicked_slot()
+        if self.ui.start_Btn.text() == "暂停":
+            self.start_clicked_slot()
         MsgBox = QtWidgets.QMessageBox()
+        MsgBox.setWindowTitle("！")
         MsgBox.setText("程序即将退出")
         MsgBox.setInformativeText("是否保存运行信息，等待下次自动运行？")
         MsgBox.setStandardButtons(
@@ -195,7 +202,9 @@ class MainFm(QtWidgets.QWidget):
             self.ctrl_save_signal.emit()
             self.app_quit()
         else:
-            self.start_clicked_slot()
+            if self.ui.start_Btn.text() == "继续":
+                self.start_clicked_slot()
+            return
 
     @QtCore.Slot()
     def start_clicked_slot(self):
@@ -203,6 +212,8 @@ class MainFm(QtWidgets.QWidget):
         if name == "开始" or name == "继续":
             self.ctrl_run_signal.emit()
             self.ui.start_Btn.setText("暂停")
+            if name == "开始":
+                self.DataDlg.init(self.Parmas['row'], self.Parmas['col'])
         elif name == "暂停":
             self.Ctrler.isPause = True
             self.ui.start_Btn.setText("继续")
@@ -227,37 +238,53 @@ class MainFm(QtWidgets.QWidget):
             self.ParmasDlg.hide()
             self.ParmasDlg.parmas_save()
             self.parmas_load()
-            self.ui.stop_Btn.setEnabled(True)
             self.show()
             self.CoolingDlg.show()
-            # if self.mppc_config() == False:
-            #    self.app_quit()
+            if self.mppc_config() == False:
+               self.app_quit()
+               return
             self.CtrlThread.start()
             self.ctrl_init_signal.emit(self.Parmas)
             self.CoolingDlg.hide()
-            self.ui.data_Btn.setEnabled(True)
-            self.ui.start_Btn.setEnabled(True)
 
     @QtCore.Slot()
     def listdlg_ok_clicked_slot(self):
         self.StartDlg.hide()
         self.ListDlg.hide()
-        self.Parmas['path'] = "Cache/" + self.ListDlg.ui.listWidget.currentItem().text()
-        with open(self.Parmas['path'] + "/parmas.json", "r", encoding='utf-8') as file: 
+        path = "Cache/" + self.ListDlg.ui.listWidget.currentItem().text()
+        with open(path + "/parmas.json", "r", encoding='utf-8') as file: 
             self.Parmas = json.load(file)
-        self.ui.stop_Btn.setEnabled(True)
         self.show()
         self.CoolingDlg.show()
-        # if self.mppc_config() == False:
-        #    self.app_quit()
+        if self.mppc_config() == False:
+           self.app_quit()
+           return
         self.CtrlThread.start()
         self.ctrl_init_signal.emit(self.Parmas)
         self.CoolingDlg.hide()
-        self.ui.data_Btn.setEnabled(True)
-        self.ui.start_Btn.setEnabled(True)
 
     @QtCore.Slot(list)
     def data_show_slot(self, data):
         self.ui.row_LB.setText(str(data[0]+1))
         self.ui.col_LB.setText(str(data[1]+1))
         self.ui.count_LB.setText(str(data[2]))
+
+    @QtCore.Slot()
+    def ctrl_init_finish_slot(self):
+        self.ui.data_Btn.setEnabled(True)
+        self.ui.start_Btn.setEnabled(True)
+        self.ui.stop_Btn.setEnabled(True)
+    
+    @QtCore.Slot()
+    def task_finish_slot(self):
+        MsgBox = QtWidgets.QMessageBox()
+        MsgBox.setWindowTitle("！")
+        MsgBox.setText("图像扫描完成:")
+        MsgBox.setInformativeText("数据以保存在Data文件夹下")
+        MsgBox.exec_()
+        self.app_quit()
+
+    @QtCore.Slot()
+    def data_slot(self):
+        self.DataDlg.show()
+        self.DataDlg.update(self.Ctrler.Data) 

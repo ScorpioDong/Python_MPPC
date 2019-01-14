@@ -20,6 +20,7 @@ class Control(QtCore.QObject):
     askstopthread_stop_signal = QtCore.Signal()
     task_finish_signal = QtCore.Signal()
     data_show_signal = QtCore.Signal(list)
+    init_finish_signal = QtCore.Signal()
 
     def __init__(self):
         super().__init__()
@@ -30,14 +31,15 @@ class Control(QtCore.QObject):
     @QtCore.Slot(dict)
     def init(self, Parmas):
         self.Parmas = Parmas
-        if self.Parmas['is_coutinue'] == False:
+        if self.Parmas['is_continue'] == False:
             self.Data = np.zeros((self.Parmas['row'], self.Parmas['col']))
         else:
-            self.Data = sio.loadmat(self.Parmas['path'] + '/temp.mat')['data']
+            self.Data = sio.loadmat(self.Parmas['path'] + "/temp.mat")['data']
         if self.serial_init(self.Parmas['serial_name']) == False:
             self.serial_open_failed_signal.emit()
             return
-        self.mt_speed_config(self.Parmas['x_speed'], self.Parmas['y_speed'])
+        self.mt_config()
+        self.init_finish_signal.emit()
 
     def serial_init(self, Port):
         self.Serial = serial.Serial(Port, 115200, timeout=0.5)
@@ -58,7 +60,7 @@ class Control(QtCore.QObject):
         try:
             self.Serial.open()
         except:
-            print("Serial open failed!")
+            #print("Serial open failed!")
             return False
 
         return True
@@ -70,9 +72,17 @@ class Control(QtCore.QObject):
         #print(String)
         self.Serial.write(String.encode())
 
-    def mt_speed_config(self, XSpeed, YSpeed):
-        self.serial_write("VX=%d/" % XSpeed)
-        self.serial_write("VY=%d/" % YSpeed)
+    def mt_config(self):
+        self.serial_write("VX=%d/" % self.Parmas['x_speed'])
+        self.serial_write("VY=%d/" % self.Parmas['y_speed'])
+        self.serial_write("HVX=8000/")
+        self.serial_write("HVY=8000/")
+        self.serial_write("-HX/")
+        self.serial_write("-HY/")
+        if self.Parmas['is_continue'] == True:
+            time.sleep(5)
+            self.serial_write("X:%d/" % (self.Parmas['x_step']*self.Parmas['col_n']))
+            self.serial_write("Y:%d/" % (self.Parmas['y_step']*self.Parmas['row_n'])) 
 
     def mt_x_one_step(self, isForward):
         if isForward == True:
@@ -86,7 +96,7 @@ class Control(QtCore.QObject):
         self.wait_stop()
 
     def mppc_get_count(self):
-        return 255
+        #return 255
         sumData = 0.0
         array = np.zeros(self.Parmas['datasize'], dtype=np.int32)
         datarray = array.tolist()
@@ -102,7 +112,7 @@ class Control(QtCore.QObject):
                     sumData = sumData + float(dat[i])
                 Data = sumData / \
                     self.Parmas['datasize'] / self.Parmas['gatetime']
-                return round(Data)
+                return Data
 
     def wait_stop(self):
         self._isStop = False
@@ -119,6 +129,8 @@ class Control(QtCore.QObject):
             if self.Parmas['col_n'] == self.Parmas['col'] or self.Parmas['col_n'] == -1:
                 self.Parmas['row_n'] = self.Parmas['row_n'] + 1
                 if self.Parmas['row_n'] == self.Parmas['row']:
+                    now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+                    sio.savemat("Data/%s.mat" % now, {'data' : self.Data})
                     self.task_finish_signal.emit()
                     break
                 else :
@@ -145,9 +157,9 @@ class Control(QtCore.QObject):
     def save(self):
         self.Parmas['is_continue'] = True
         now = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        self.path = "Cache/%s" % now
-        os.mkdir(self.path)
-        with open(self.path + "/parmas.json", "w", encoding='utf-8') as file:
+        self.Parmas['path'] = "Cache/%s" % now
+        os.mkdir(self.Parmas['path'])
+        with open(self.Parmas['path'] + "/parmas.json", "w", encoding='utf-8') as file:
             json.dump(self.Parmas, file, indent=4)
 
-        sio.savemat(self.path + "/temp.mat", {'data' : self.Data})
+        sio.savemat(self.Parmas['path'] + "/temp.mat", {'data' : self.Data})

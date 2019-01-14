@@ -10,8 +10,8 @@ class CoolingFm(QtWidgets.QDialog):
         super().__init__()
         self.setWindowFlags(self.windowFlags() & ~
                             QtCore.Qt.WindowCloseButtonHint)
-        self.setFixedSize(342, 96)
+
         self.ui = UI.coolingFm.Ui_Form()
         self.ui.setupUi(self)
 
-        self.setFixedSize(self.width(),self.height())
+        self.setFixedSize(self.width(), self.height())
